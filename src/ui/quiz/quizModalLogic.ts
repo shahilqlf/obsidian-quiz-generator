@@ -33,7 +33,10 @@ export default class QuizModalLogic {
 		const quiz = this.settings.randomizeQuestions ? shuffleArray(this.quiz) : this.quiz;
 
 		if (this.settings.autoSave && this.quizSources.length > 0) {
-			await this.quizSaver.saveAllQuestions(quiz); // move into QuizModal or QuizModalWrapper?
+			// MODIFIED CODE: Update this call to match the new structure for saveAllQuestions
+			// We pass `null` for the answer because no answers have been given yet.
+			const questionsToSave = quiz.map(q => ({ question: q, answer: null }));
+			await this.quizSaver.saveAllQuestions(questionsToSave);
 		}
 
 		this.container = document.body.createDiv();
