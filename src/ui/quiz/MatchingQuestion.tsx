@@ -3,15 +3,23 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Matching } from "../../utils/types";
 import { shuffleArray } from "../../utils/helpers";
 
+// Type for a single pair
+type MatchingPair = { leftIndex: number, rightIndex: number };
+
+// MODIFIED CODE: Added userAnswer and onAnswerChange
 interface MatchingQuestionProps {
 	app: App;
 	question: Matching;
+	userAnswer: MatchingPair[];
+	onAnswerChange: (answer: MatchingPair[]) => void;
 }
 
-const MatchingQuestion = ({ app, question }: MatchingQuestionProps) => {
+// MODIFIED CODE: Added userAnswer (aliased to selectedPairs) and onAnswerChange (aliased to setSelectedPairs)
+const MatchingQuestion = ({ app, question, userAnswer: selectedPairs, onAnswerChange: setSelectedPairs }: MatchingQuestionProps) => {
 	const [selectedLeft, setSelectedLeft] = useState<number | null>(null);
 	const [selectedRight, setSelectedRight] = useState<number | null>(null);
-	const [selectedPairs, setSelectedPairs] = useState<{ leftIndex: number, rightIndex: number }[]>([]);
+	// MODIFIED CODE: Removed local state, now using props
+	// const [selectedPairs, setSelectedPairs] = useState<{ leftIndex: number, rightIndex: number }[]>([]);
 	const [status, setStatus] = useState<"answering" | "submitted" | "reviewing">("answering");
 
 	const leftOptions = useMemo<{ value: string, index: number }[]>(() =>
@@ -59,6 +67,7 @@ const MatchingQuestion = ({ app, question }: MatchingQuestionProps) => {
 		});
 	}, [app, question, leftOptions, rightOptions]);
 
+	// MODIFIED CODE: All calls to setSelectedPairs now call the prop function
 	const handleLeftClick = (leftIndex: number) => {
 		if (selectedLeft === leftIndex) {
 			setSelectedLeft(null);
@@ -78,6 +87,7 @@ const MatchingQuestion = ({ app, question }: MatchingQuestionProps) => {
 		}
 	};
 
+	// MODIFIED CODE: All calls to setSelectedPairs now call the prop function
 	const handleRightClick = (rightIndex: number) => {
 		if (selectedRight === rightIndex) {
 			setSelectedRight(null);
@@ -97,10 +107,12 @@ const MatchingQuestion = ({ app, question }: MatchingQuestionProps) => {
 		}
 	};
 
+	// MODIFIED CODE: All calls to setSelectedPairs now call the prop function
 	const handleLeftDoubleClick = (leftIndex: number) => {
 		setSelectedPairs(selectedPairs.filter(pair => pair.leftIndex !== leftIndex));
 	};
 
+	// MODIFIED CODE: All calls to setSelectedPairs now call the prop function
 	const handleRightDoubleClick = (rightIndex: number) => {
 		setSelectedPairs(selectedPairs.filter(pair => pair.rightIndex !== rightIndex));
 	};
