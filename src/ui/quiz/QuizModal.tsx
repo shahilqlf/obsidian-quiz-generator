@@ -32,23 +32,22 @@ const QuizModal = ({ app, settings, quiz, quizSaver, reviewing, handleClose }: Q
 	const [questionIndex, setQuestionIndex] = useState<number>(0);
 	const [savedQuestions, setSavedQuestions] = useState<boolean[]>(Array(quiz.length).fill(reviewing));
 
-	// NEW CODE: Helper function to initialize the userAnswers state correctly
+	// Helper function to initialize user answers
 	const initializeUserAnswers = () => {
 		return quiz.map(q => {
-			if (isSelectAllThatApply(q)) {
-				return []; // Default for select all that apply
-			} else if (isFillInTheBlank(q)) {
-				return Array(q.answer.length).fill(""); // Default for fill in the blank
-			} else if (isMatching(q)) {
-				return []; // Default for matching
-			} else {
-				return null; // Default for True/False, Multiple Choice, and Short/Long
-			}
+			if (isSelectAllThatApply(q)) return [];
+			if (isFillInTheBlank(q)) return Array(q.answer.length).fill("");
+			if (isMatching(q)) return [];
+			return null;
 		});
 	};
-
-	// NEW CODE: State to store the user's answer for ALL questions
 	const [userAnswers, setUserAnswers] = useState<any[]>(initializeUserAnswers());
+
+	// --- NEW CODE FOR SCORING ---
+	const [score, setScore] = useState<number>(0);
+	const [correctness, setCorrectness] = useState<(boolean | null)[]>(Array(quiz.length).fill(null));
+	const [quizCompleted, setQuizCompleted] = useState<boolean>(false);
+	// --- END NEW CODE ---
 
 	const handlePreviousQuestion = () => {
 		if (questionIndex > 0) {
@@ -56,44 +55,55 @@ const QuizModal = ({ app, settings, quiz, quizSaver, reviewing, handleClose }: Q
 		}
 	};
 
-	// MODIFIED CODE: Pass the user's answer for this question to the saver
 	const handleSaveQuestion = async () => {
 		const updatedSavedQuestions = [...savedQuestions];
 		updatedSavedQuestions[questionIndex] = true;
 		setSavedQuestions(updatedSavedQuestions);
-		await quizSaver.saveQuestion(quiz[questionIndex], userAnswers[questionIndex]); // Pass current answer
+		await quizSaver.saveQuestion(quiz[questionIndex], userAnswers[questionIndex]);
 	};
 
-	// MODIFIED CODE: Pass all user answers to the saver
 	const handleSaveAllQuestions = async () => {
-		// Create a new array that includes the user's answers
 		const questionsToSave = quiz
 			.map((question, index) => ({
 				question: question,
-				answer: userAnswers[index] // Get the user's answer
+				answer: userAnswers[index]
 			}))
-			.filter((_, index) => !savedQuestions[index]); // Only get unsaved ones
+			.filter((_, index) => !savedQuestions[index]);
 
 		const updatedSavedQuestions = savedQuestions.map(() => true);
 		setSavedQuestions(updatedSavedQuestions);
-		await quizSaver.saveAllQuestions(questionsToSave); // Pass this new array
+		await quizSaver.saveAllQuestions(questionsToSave);
 	};
 
-	const handleNextQuestion = () => {
-		if (questionIndex < quiz.length - 1) {
-			setQuestionIndex(questionIndex + 1);
+	// MODIFIED CODE: This handler now also accepts `isCorrect`
+	const handleAnswerChange = (index: number, answer: any, isCorrect: boolean) => {
+		// Only update score the first time an answer is given
+		if (correctness[index] === null) {
+			const newCorrectness = [...correctness];
+			newCorrectness[index] = isCorrect;
+			setCorrectness(newCorrectness);
+			
+			if (isCorrect) {
+				setScore(prevScore => prevScore + 1);
+			}
 		}
-	};
-
-	// NEW CODE: Handler function to update the userAnswers state
-	const handleAnswerChange = (index: number, answer: any) => {
+		
 		const newUserAnswers = [...userAnswers];
 		newUserAnswers[index] = answer;
 		setUserAnswers(newUserAnswers);
 	};
+	
+	// MODIFIED CODE: Now checks if it's the last question
+	const handleNextQuestion = () => {
+		if (questionIndex < quiz.length - 1) {
+			setQuestionIndex(questionIndex + 1);
+		} else {
+			// NEW CODE: If it's the last question, show results
+			setQuizCompleted(true);
+		}
+	};
 
-	// MODIFIED CODE: The renderQuestion function now passes down the
-	// `userAnswer` and `onAnswerChange` props to every question component.
+	// MODIFIED CODE: Now passes `onAnswerChange` with the new (isCorrect) parameter
 	const renderQuestion = () => {
 		const question = quiz[questionIndex];
 		if (isTrueFalse(question)) {
@@ -102,7 +112,7 @@ const QuizModal = ({ app, settings, quiz, quizSaver, reviewing, handleClose }: Q
 				app={app}
 				question={question}
 				userAnswer={userAnswers[questionIndex]}
-				onAnswerChange={(answer) => handleAnswerChange(questionIndex, answer)}
+				onAnswerChange={(answer, isCorrect) => handleAnswerChange(questionIndex, answer, isCorrect)}
 			/>;
 		} else if (isMultipleChoice(question)) {
 			return <MultipleChoiceQuestion
@@ -110,7 +120,7 @@ const QuizModal = ({ app, settings, quiz, quizSaver, reviewing, handleClose }: Q
 				app={app}
 				question={question}
 				userAnswer={userAnswers[questionIndex]}
-				onAnswerChange={(answer) => handleAnswerChange(questionIndex, answer)}
+				onAnswerChange={(answer, isCorrect) => handleAnswerChange(questionIndex, answer, isCorrect)}
 			/>;
 		} else if (isSelectAllThatApply(question)) {
 			return <SelectAllThatApplyQuestion
@@ -118,7 +128,7 @@ const QuizModal = ({ app, settings, quiz, quizSaver, reviewing, handleClose }: Q
 				app={app}
 				question={question}
 				userAnswer={userAnswers[questionIndex] || []}
-				onAnswerChange={(answer) => handleAnswerChange(questionIndex, answer)}
+				onAnswerChange={(answer, isCorrect) => handleAnswerChange(questionIndex, answer, isCorrect)}
 			/>;
 		} else if (isFillInTheBlank(question)) {
 			return <FillInTheBlankQuestion
@@ -126,7 +136,7 @@ const QuizModal = ({ app, settings, quiz, quizSaver, reviewing, handleClose }: Q
 				app={app}
 				question={question}
 				userAnswer={userAnswers[questionIndex] || Array(question.answer.length).fill("")}
-				onAnswerChange={(answer) => handleAnswerChange(questionIndex, answer)}
+				onAnswerChange={(answer, isCorrect) => handleAnswerChange(questionIndex, answer, isCorrect)}
 			/>;
 		} else if (isMatching(question)) {
 			return <MatchingQuestion
@@ -134,7 +144,7 @@ const QuizModal = ({ app, settings, quiz, quizSaver, reviewing, handleClose }: Q
 				app={app}
 				question={question}
 				userAnswer={userAnswers[questionIndex] || []}
-				onAnswerChange={(answer) => handleAnswerChange(questionIndex, answer)}
+				onAnswerChange={(answer, isCorrect) => handleAnswerChange(questionIndex, answer, isCorrect)}
 			/>;
 		} else if (isShortOrLongAnswer(question)) {
 			return <ShortOrLongAnswerQuestion
@@ -143,10 +153,27 @@ const QuizModal = ({ app, settings, quiz, quizSaver, reviewing, handleClose }: Q
 				question={question}
 				settings={settings}
 				userAnswer={userAnswers[questionIndex] || ""}
-				onAnswerChange={(answer) => handleAnswerChange(questionIndex, answer)}
+				onAnswerChange={(answer, isCorrect) => handleAnswerChange(questionIndex, answer, isCorrect)}
 			/>;
 		}
 	};
+	
+	// --- NEW CODE FOR SCORING ---
+	// This renders the results screen
+	const renderResults = () => {
+		return (
+			<div className="question-container-qg">
+				<div className="question-qg" style={{ fontSize: "var(--font-heading-2)" }}>Quiz Completed!</div>
+				<div className="question-qg" style={{ fontSize: "var(--font-heading-3)", margin: "20px 0" }}>
+					Your Score: {score} / {quiz.length}
+				</div>
+				<div className="modal-button-container-qg">
+					<button className="modal-button-qg" onClick={handleClose}>Finish</button>
+				</div>
+			</div>
+		);
+	};
+	// --- END NEW CODE ---
 
 	return (
 		<div className="modal-container mod-dim">
@@ -154,37 +181,49 @@ const QuizModal = ({ app, settings, quiz, quizSaver, reviewing, handleClose }: Q
 			<div className="modal modal-qg">
 				<div className="modal-close-button" onClick={handleClose} />
 				<div className="modal-header">
-					<div className="modal-title modal-title-qg">Question {questionIndex + 1} of {quiz.length}</div>
+					{/* MODIFIED CODE: Title changes when quiz is complete */}
+					<div className="modal-title modal-title-qg">
+						{quizCompleted ? "Quiz Results" : `Question ${questionIndex + 1} of ${quiz.length}`}
+					</div>
 				</div>
 				<div className="modal-content modal-content-flex-qg">
-					<div className="modal-button-container-qg">
-						<ModalButton
-							icon="arrow-left"
-							tooltip="Back"
-							onClick={handlePreviousQuestion}
-							disabled={questionIndex === 0}
-						/>
-						<ModalButton
-							icon="save"
-							tooltip="Save"
-							onClick={handleSaveQuestion}
-							disabled={savedQuestions[questionIndex]}
-						/>
-						<ModalButton
-							icon="save-all"
-							tooltip="Save all"
-							onClick={handleSaveAllQuestions}
-							disabled={!savedQuestions.includes(false)}
-						/>
-						<ModalButton
-							icon="arrow-right"
-							tooltip="Next"
-							onClick={handleNextQuestion}
-							disabled={questionIndex === quiz.length - 1}
-						/>
-					</div>
-					<hr className="quiz-divider-qg" />
-					{renderQuestion()}
+					{/* MODIFIED CODE: Hide buttons on results screen */}
+					{!quizCompleted && (
+						<>
+							<div className="modal-button-container-qg">
+								<ModalButton
+									icon="arrow-left"
+									tooltip="Back"
+									onClick={handlePreviousQuestion}
+									disabled={questionIndex === 0}
+								/>
+								<ModalButton
+									icon="save"
+									tooltip="Save"
+									onClick={handleSaveQuestion}
+									disabled={savedQuestions[questionIndex]}
+								/>
+								<ModalButton
+									icon="save-all"
+									tooltip="Save all"
+									onClick={handleSaveAllQuestions}
+									disabled={!savedQuestions.includes(false)}
+								/>
+								<ModalButton
+									icon="arrow-right"
+									tooltip="Next"
+									onClick={handleNextQuestion}
+									// MODIFIED CODE: Button text changes on last question
+									disabled={correctness[questionIndex] === null && !reviewing}
+								>
+									{questionIndex === quiz.length - 1 ? "Finish" : "Next"}
+								</ModalButton>
+							</div>
+							<hr className="quiz-divider-qg" />
+						</>
+					)}
+					{/* MODIFIED CODE: Show results or question */}
+					{quizCompleted ? renderResults() : renderQuestion()}
 				</div>
 			</div>
 		</div>
