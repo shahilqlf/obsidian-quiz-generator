@@ -2,18 +2,15 @@ import { App, Component, MarkdownRenderer } from "obsidian";
 import { useEffect, useRef } from "react";
 import { MultipleChoice } from "../../utils/types";
 
-// MODIFIED CODE: Added userAnswer and onAnswerChange to the props
+// MODIFIED CODE: onAnswerChange signature has changed
 interface MultipleChoiceQuestionProps {
 	app: App;
 	question: MultipleChoice;
 	userAnswer: number | null;
-	onAnswerChange: (answer: number) => void;
+	onAnswerChange: (answer: number, isCorrect: boolean) => void; // Now sends `isCorrect`
 }
 
-// MODIFIED CODE: Added userAnswer and onAnswerChange to the function arguments
 const MultipleChoiceQuestion = ({ app, question, userAnswer, onAnswerChange }: MultipleChoiceQuestionProps) => {
-	// MODIFIED CODE: Removed the local state, as it's now managed by the parent
-	// const [userAnswer, setUserAnswer] = useState<number | null>(null);
 	const questionRef = useRef<HTMLDivElement>(null);
 	const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -53,10 +50,11 @@ const MultipleChoiceQuestion = ({ app, question, userAnswer, onAnswerChange }: M
 						key={index}
 						ref={(el) => buttonRefs.current[index] = el}
 						className={getButtonClass(index)}
-						// MODIFIED CODE: Call the onAnswerChange prop instead of setting local state
+						// MODIFIED CODE: Now checks correctness and passes it to the parent
 						onClick={() => {
 							if (userAnswer === null) {
-								onAnswerChange(index);
+								const isCorrect = index === question.answer;
+								onAnswerChange(index, isCorrect);
 							}
 						}}
 						disabled={userAnswer !== null}
