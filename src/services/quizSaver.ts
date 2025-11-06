@@ -27,13 +27,16 @@ export default class QuizSaver {
 		this.validSavePath = this.app.vault.getAbstractFileByPath(this.settings.savePath) instanceof TFolder;
 	}
 
-	public async saveQuestion(question: Question): Promise<void> {
+	// MODIFIED CODE: Added userAnswer parameter
+	public async saveQuestion(question: Question, userAnswer: any = null): Promise<void> {
 		const saveFile = await this.getSaveFile();
 
 		if (this.settings.saveFormat === SaveFormat.SPACED_REPETITION) {
-			await this.app.vault.append(saveFile, this.createSpacedRepetitionQuestion(question));
+			// MODIFIED CODE: Pass userAnswer, though we won't use it for spaced repetition for now
+			await this.app.vault.append(saveFile, this.createSpacedRepetitionQuestion(question, userAnswer));
 		} else {
-			await this.app.vault.append(saveFile, this.createCalloutQuestion(question));
+			// MODIFIED CODE: Pass userAnswer to callout generator
+			await this.app.vault.append(saveFile, this.createCalloutQuestion(question, userAnswer));
 		}
 
 		if (this.validSavePath) {
@@ -43,15 +46,16 @@ export default class QuizSaver {
 		}
 	}
 
-	public async saveAllQuestions(questions: Question[]): Promise<void> {
-		if (questions.length === 0) return;
+	// MODIFIED CODE: Updated to accept the new { question, answer } structure
+	public async saveAllQuestions(questionsToSave: { question: Question, answer: any }[]): Promise<void> {
+		if (questionsToSave.length === 0) return;
 
 		const quiz: string[] = [];
-		for (const question of questions) {
+		for (const item of questionsToSave) {
 			if (this.settings.saveFormat === SaveFormat.SPACED_REPETITION) {
-				quiz.push(this.createSpacedRepetitionQuestion(question));
+				quiz.push(this.createSpacedRepetitionQuestion(item.question, item.answer));
 			} else {
-				quiz.push(this.createCalloutQuestion(question));
+				quiz.push(this.createCalloutQuestion(item.question, item.answer));
 			}
 		}
 
@@ -97,33 +101,77 @@ export default class QuizSaver {
 		return saveFile instanceof TFile ? saveFile : await this.app.vault.create(this.saveFilePath, initialContent);
 	}
 
-	private createCalloutQuestion(question: Question): string {
+	// MODIFIED CODE: Added userAnswer parameter and logic to create failure callouts
+	private createCalloutQuestion(question: Question, userAnswer: any = null): string {
+		let userAnswerBlock = "";
+
 		if (isTrueFalse(question)) {
-			const answer = question.answer.toString().charAt(0).toUpperCase() + question.answer.toString().slice(1);
+			if (userAnswer !== null && userAnswer !== question.answer) {
+				userAnswerBlock = `>> [!failure]- Your Answer\n>> ${this.capitalize(userAnswer.toString())}\n`;
+			}
+			const answer = this.capitalize(question.answer.toString());
 			return `> [!question] ${question.question}\n` +
+				userAnswerBlock +
 				`>> [!success]- Answer\n` +
 				`>> ${answer}\n\n`;
+
 		} else if (isMultipleChoice(question)) {
 			const options = this.getCalloutOptions(question.options);
+			if (userAnswer !== null && userAnswer !== question.answer) {
+				userAnswerBlock = `>> [!failure]- Your Answer\n${options[userAnswer].replace(">", ">>")}\n`;
+			}
 			return `> [!question] ${question.question}\n` +
 				`${options.join("\n")}\n` +
+				userAnswerBlock +
 				`>> [!success]- Answer\n` +
 				`${options[question.answer].replace(">", ">>")}\n\n`;
+
 		} else if (isSelectAllThatApply(question)) {
 			const options = this.getCalloutOptions(question.options);
-			const answers = options.filter((_, index) => question.answer.includes(index));
+			const correctAnswers = options.filter((_, index) => question.answer.includes(index));
+			
+			// NEW CODE: Check if user answer is different from correct answer
+			const userAnswerSorted = userAnswer ? [...userAnswer].sort().join(",") : null;
+			const correctAnswerSorted = [...question.answer].sort().join(",");
+			
+			if (userAnswerSorted !== null && userAnswerSorted !== correctAnswerSorted) {
+				const userAnswers = options.filter((_, index) => userAnswer.includes(index));
+				userAnswerBlock = `>> [!failure]- Your Answer\n${userAnswers.map(answer => answer.replace(">", ">>")).join("\n")}\n`;
+			}
+			
 			return `> [!question] ${question.question}\n` +
 				`${options.join("\n")}\n` +
+				userAnswerBlock +
 				`>> [!success]- Answer\n` +
-				`${answers.map(answer => answer.replace(">", ">>")).join("\n")}\n\n`;
+				`${correctAnswers.map(answer => answer.replace(">", ">>")).join("\n")}\n\n`;
+
 		} else if (isFillInTheBlank(question)) {
+			// NEW CODE: Check if user answer is different from correct answer
+			const userAnswerStr = userAnswer ? userAnswer.filter((item: string) => item.length > 0).join(", ") : null;
+			const correctAnswerStr = question.answer.join(", ");
+			
+			if (userAnswerStr !== null && userAnswerStr !== "" && userAnswerStr !== correctAnswerStr) {
+				userAnswerBlock = `>> [!failure]- Your Answer\n>> ${userAnswerStr}\n`;
+			}
+			
 			return `> [!question] ${question.question}\n` +
+				userAnswerBlock +
 				`>> [!success]- Answer\n` +
-				`>> ${question.answer.join(", ")}\n\n`;
+				`>> ${correctAnswerStr}\n\n`;
+
 		} else if (isMatching(question)) {
 			const leftOptions = shuffleArray(question.answer.map(pair => pair.leftOption));
 			const rightOptions = shuffleArray(question.answer.map(pair => pair.rightOption));
-			const answers = this.getCalloutMatchingAnswers(leftOptions, rightOptions, question.answer);
+			const correctAnswers = this.getCalloutMatchingAnswers(leftOptions, rightOptions, question.answer);
+			
+			// NEW CODE: Check if user answer is different from correct answer
+			if (userAnswer !== null && userAnswer.length > 0) {
+				const userMatchingAnswers = this.getCalloutMatchingAnswers(leftOptions, rightOptions, userAnswer, true);
+				if (userMatchingAnswers.join("\n") !== correctAnswers.join("\n")) {
+					userAnswerBlock = `>> [!failure]- Your Answer\n${userMatchingAnswers.join("\n")}\n`;
+				}
+			}
+
 			return `> [!question] ${question.question}\n` +
 				`>> [!example] Group A\n` +
 				`${this.getCalloutOptions(leftOptions).map(option => option.replace(">", ">>")).join("\n")}\n` +
@@ -131,20 +179,31 @@ export default class QuizSaver {
 				`>> [!example] Group B\n` +
 				`${this.getCalloutOptions(rightOptions, 13).map(option => option.replace(">", ">>")).join("\n")}\n` +
 				`>\n` +
+				userAnswerBlock +
 				`>> [!success]- Answer\n` +
-				`${answers.join("\n")}\n\n`;
+				`${correctAnswers.join("\n")}\n\n`;
+
 		} else if (isShortOrLongAnswer(question)) {
+			if (userAnswer !== null && userAnswer !== "" && userAnswer.toLowerCase().trim() !== "skip" && userAnswer !== question.answer) {
+				userAnswerBlock = `>> [!failure]- Your Answer\n>> ${userAnswer}\n`;
+			}
 			return `> [!question] ${question.question}\n` +
+				userAnswerBlock +
 				`>> [!success]- Answer\n` +
 				`>> ${question.answer}\n\n`;
+				
 		} else {
 			return "> [!failure] Error saving question\n\n";
 		}
 	}
 
-	private createSpacedRepetitionQuestion(question: Question): string {
+	// MODIFIED CODE: Added userAnswer parameter
+	private createSpacedRepetitionQuestion(question: Question, userAnswer: any = null): string {
+		// Spaced repetition format doesn't support failure callouts, so we'll just save the correct answer
+		// We add 'userAnswer' just to make the function signature consistent
+		
 		if (isTrueFalse(question)) {
-			const answer = question.answer.toString().charAt(0).toUpperCase() + question.answer.toString().slice(1);
+			const answer = this.capitalize(question.answer.toString());
 			return `**True or False:** ${question.question} ${this.settings.inlineSeparator} ${answer}\n\n`;
 		} else if (isMultipleChoice(question)) {
 			const options = this.getSpacedRepetitionOptions(question.options);
@@ -192,15 +251,33 @@ export default class QuizSaver {
 		return options.map((option, index) => `${letters[index]}) ${option}`);
 	}
 
-	private getCalloutMatchingAnswers(leftOptions: string[], rightOptions: string[], answer: { leftOption: string, rightOption: string }[]): string[] {
-		const leftOptionIndexMap = new Map<string, number>(leftOptions.map((option, index) => [option, index]));
-		const sortedAnswer = [...answer].sort((a, b) => leftOptionIndexMap.get(a.leftOption)! - leftOptionIndexMap.get(b.leftOption)!);
+	// MODIFIED CODE: Added `isUserAnswer` flag
+	private getCalloutMatchingAnswers(
+		leftOptions: string[],
+		rightOptions: string[],
+		answer: { leftOption: string, rightOption: string }[] | { leftIndex: number, rightIndex: number }[],
+		isUserAnswer: boolean = false
+	): string[] {
+		
+		const getAnswerPairs = () => {
+			if (isUserAnswer) {
+				// User answer is { leftIndex, rightIndex }
+				return (answer as { leftIndex: number, rightIndex: number }[]).map(pair => ({
+					leftLetter: String.fromCharCode(97 + pair.leftIndex),
+					rightLetter: String.fromCharCode(110 + pair.rightIndex)
+				}));
+			} else {
+				// Correct answer is { leftOption, rightOption }
+				return (answer as { leftOption: string, rightOption: string }[]).map(pair => ({
+					leftLetter: String.fromCharCode(97 + leftOptions.indexOf(pair.leftOption)),
+					rightLetter: String.fromCharCode(110 + rightOptions.indexOf(pair.rightOption))
+				}));
+			}
+		};
 
-		return sortedAnswer.map(pair => {
-			const leftLetter = String.fromCharCode(97 + leftOptions.indexOf(pair.leftOption));
-			const rightLetter = String.fromCharCode(110 + rightOptions.indexOf(pair.rightOption));
-			return `>> ${leftLetter}) -> ${rightLetter})`;
-		});
+		const pairs = getAnswerPairs();
+		pairs.sort((a, b) => a.leftLetter.localeCompare(b.leftLetter)); // Sort alphabetically by left letter
+		return pairs.map(pair => `>> ${pair.leftLetter}) -> ${pair.rightLetter})`);
 	}
 
 	private getSpacedRepetitionMatchingAnswers(leftOptions: string[], rightOptions: string[], answer: { leftOption: string, rightOption: string }[]): string[] {
@@ -212,5 +289,10 @@ export default class QuizSaver {
 			const rightLetter = String.fromCharCode(110 + rightOptions.indexOf(pair.rightOption));
 			return `${leftLetter}) -> ${rightLetter})`;
 		});
+	}
+	
+	// NEW CODE: Helper function
+	private capitalize(s: string) {
+		return s.charAt(0).toUpperCase() + s.slice(1);
 	}
 }
