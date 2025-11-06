@@ -27,15 +27,12 @@ export default class QuizSaver {
 		this.validSavePath = this.app.vault.getAbstractFileByPath(this.settings.savePath) instanceof TFolder;
 	}
 
-	// MODIFIED CODE: Added userAnswer parameter
 	public async saveQuestion(question: Question, userAnswer: any = null): Promise<void> {
 		const saveFile = await this.getSaveFile();
 
 		if (this.settings.saveFormat === SaveFormat.SPACED_REPETITION) {
-			// MODIFIED CODE: Pass userAnswer, though we won't use it for spaced repetition for now
 			await this.app.vault.append(saveFile, this.createSpacedRepetitionQuestion(question, userAnswer));
 		} else {
-			// MODIFIED CODE: Pass userAnswer to callout generator
 			await this.app.vault.append(saveFile, this.createCalloutQuestion(question, userAnswer));
 		}
 
@@ -46,7 +43,6 @@ export default class QuizSaver {
 		}
 	}
 
-	// MODIFIED CODE: Updated to accept the new { question, answer } structure
 	public async saveAllQuestions(questionsToSave: { question: Question, answer: any }[]): Promise<void> {
 		if (questionsToSave.length === 0) return;
 
@@ -101,17 +97,21 @@ export default class QuizSaver {
 		return saveFile instanceof TFile ? saveFile : await this.app.vault.create(this.saveFilePath, initialContent);
 	}
 
-	// MODIFIED CODE: Added userAnswer parameter and logic to create failure callouts
+	// MODIFIED CODE: This function now adds `>\n` to separate callouts
 	private createCalloutQuestion(question: Question, userAnswer: any = null): string {
 		let userAnswerBlock = "";
+		let breakout = ">\n"; // NEW: This will separate the failure and success callouts
 
 		if (isTrueFalse(question)) {
 			if (userAnswer !== null && userAnswer !== question.answer) {
 				userAnswerBlock = `>> [!failure]- Your Answer\n>> ${this.capitalize(userAnswer.toString())}\n`;
+			} else {
+				breakout = ""; // No failure block, so no breakout needed
 			}
 			const answer = this.capitalize(question.answer.toString());
 			return `> [!question] ${question.question}\n` +
 				userAnswerBlock +
+				breakout + // Add the breakout
 				`>> [!success]- Answer\n` +
 				`>> ${answer}\n\n`;
 
@@ -119,10 +119,13 @@ export default class QuizSaver {
 			const options = this.getCalloutOptions(question.options);
 			if (userAnswer !== null && userAnswer !== question.answer) {
 				userAnswerBlock = `>> [!failure]- Your Answer\n${options[userAnswer].replace(">", ">>")}\n`;
+			} else {
+				breakout = ""; // No failure block, so no breakout needed
 			}
 			return `> [!question] ${question.question}\n` +
 				`${options.join("\n")}\n` +
 				userAnswerBlock +
+				breakout + // Add the breakout
 				`>> [!success]- Answer\n` +
 				`${options[question.answer].replace(">", ">>")}\n\n`;
 
@@ -130,46 +133,54 @@ export default class QuizSaver {
 			const options = this.getCalloutOptions(question.options);
 			const correctAnswers = options.filter((_, index) => question.answer.includes(index));
 			
-			// NEW CODE: Check if user answer is different from correct answer
 			const userAnswerSorted = userAnswer ? [...userAnswer].sort().join(",") : null;
 			const correctAnswerSorted = [...question.answer].sort().join(",");
 			
-			if (userAnswerSorted !== null && userAnswerSorted !== correctAnswerSorted) {
+			if (userAnswerSorted !== null && userAnswerSorted.length > 0 && userAnswerSorted !== correctAnswerSorted) {
 				const userAnswers = options.filter((_, index) => userAnswer.includes(index));
 				userAnswerBlock = `>> [!failure]- Your Answer\n${userAnswers.map(answer => answer.replace(">", ">>")).join("\n")}\n`;
+			} else {
+				breakout = ""; // No failure block, so no breakout needed
 			}
 			
 			return `> [!question] ${question.question}\n` +
 				`${options.join("\n")}\n` +
 				userAnswerBlock +
+				breakout + // Add the breakout
 				`>> [!success]- Answer\n` +
 				`${correctAnswers.map(answer => answer.replace(">", ">>")).join("\n")}\n\n`;
 
 		} else if (isFillInTheBlank(question)) {
-			// NEW CODE: Check if user answer is different from correct answer
 			const userAnswerStr = userAnswer ? userAnswer.filter((item: string) => item.length > 0).join(", ") : null;
 			const correctAnswerStr = question.answer.join(", ");
 			
 			if (userAnswerStr !== null && userAnswerStr !== "" && userAnswerStr !== correctAnswerStr) {
 				userAnswerBlock = `>> [!failure]- Your Answer\n>> ${userAnswerStr}\n`;
+			} else {
+				breakout = ""; // No failure block, so no breakout needed
 			}
 			
 			return `> [!question] ${question.question}\n` +
 				userAnswerBlock +
+				breakout + // Add the breakout
 				`>> [!success]- Answer\n` +
 				`>> ${correctAnswerStr}\n\n`;
 
 		} else if (isMatching(question)) {
+			// Note: isMatching already had the breakout, so we just add the check
 			const leftOptions = shuffleArray(question.answer.map(pair => pair.leftOption));
 			const rightOptions = shuffleArray(question.answer.map(pair => pair.rightOption));
 			const correctAnswers = this.getCalloutMatchingAnswers(leftOptions, rightOptions, question.answer);
 			
-			// NEW CODE: Check if user answer is different from correct answer
 			if (userAnswer !== null && userAnswer.length > 0) {
 				const userMatchingAnswers = this.getCalloutMatchingAnswers(leftOptions, rightOptions, userAnswer, true);
 				if (userMatchingAnswers.join("\n") !== correctAnswers.join("\n")) {
-					userAnswerBlock = `>> [!failure]- Your Answer\n${userMatchingAnswers.join("\n")}\n`;
+					userAnswerBlock = `>> [!failure]- Your Answer\n${userMatchingAnswers.join("\n")}\n>\n`;
+				} else {
+					breakout = ""; // Answers are same, so no failure block
 				}
+			} else {
+				breakout = ""; // No answer, so no failure block
 			}
 
 			return `> [!question] ${question.question}\n` +
@@ -179,16 +190,20 @@ export default class QuizSaver {
 				`>> [!example] Group B\n` +
 				`${this.getCalloutOptions(rightOptions, 13).map(option => option.replace(">", ">>")).join("\n")}\n` +
 				`>\n` +
-				userAnswerBlock +
+				userAnswerBlock + // This block *includes* the breakout `>\n` if it exists
+				(userAnswerBlock ? "" : breakout) + // Only add breakout if no failure block was added
 				`>> [!success]- Answer\n` +
 				`${correctAnswers.join("\n")}\n\n`;
 
 		} else if (isShortOrLongAnswer(question)) {
 			if (userAnswer !== null && userAnswer !== "" && userAnswer.toLowerCase().trim() !== "skip" && userAnswer !== question.answer) {
 				userAnswerBlock = `>> [!failure]- Your Answer\n>> ${userAnswer}\n`;
+			} else {
+				breakout = ""; // No failure block, so no breakout needed
 			}
 			return `> [!question] ${question.question}\n` +
 				userAnswerBlock +
+				breakout + // Add the breakout
 				`>> [!success]- Answer\n` +
 				`>> ${question.answer}\n\n`;
 				
@@ -197,10 +212,8 @@ export default class QuizSaver {
 		}
 	}
 
-	// MODIFIED CODE: Added userAnswer parameter
 	private createSpacedRepetitionQuestion(question: Question, userAnswer: any = null): string {
-		// Spaced repetition format doesn't support failure callouts, so we'll just save the correct answer
-		// We add 'userAnswer' just to make the function signature consistent
+		// Spaced repetition format doesn't support failure callouts
 		
 		if (isTrueFalse(question)) {
 			const answer = this.capitalize(question.answer.toString());
@@ -241,17 +254,22 @@ export default class QuizSaver {
 		}
 	}
 
+	// MODIFIED CODE: Added regex to clean the option text
 	private getCalloutOptions(options: string[], startIndex: number = 0): string[] {
 		const letters = "abcdefghijklmnopqrstuvwxyz".slice(startIndex);
-		return options.map((option, index) => `> ${letters[index]}) ${option}`);
+		// Regex to remove "A. ", "B) ", "c. " etc. from the start of the option
+		const prefixRegex = /^[a-zA-Z][.)]\s+/; 
+		return options.map((option, index) => `> ${letters[index]}) ${option.replace(prefixRegex, "")}`);
 	}
 
+	// MODIFIED CODE: Added regex to clean the option text
 	private getSpacedRepetitionOptions(options: string[], startIndex: number = 0): string[] {
 		const letters = "abcdefghijklmnopqrstuvwxyz".slice(startIndex);
-		return options.map((option, index) => `${letters[index]}) ${option}`);
+		// Regex to remove "A. ", "B) ", "c. " etc. from the start of the option
+		const prefixRegex = /^[a-zA-Z][.)]\s+/;
+		return options.map((option, index) => `${letters[index]}) ${option.replace(prefixRegex, "")}`);
 	}
 
-	// MODIFIED CODE: Added `isUserAnswer` flag
 	private getCalloutMatchingAnswers(
 		leftOptions: string[],
 		rightOptions: string[],
@@ -291,7 +309,6 @@ export default class QuizSaver {
 		});
 	}
 	
-	// NEW CODE: Helper function
 	private capitalize(s: string) {
 		return s.charAt(0).toUpperCase() + s.slice(1);
 	}
