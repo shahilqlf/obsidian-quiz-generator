@@ -5,13 +5,17 @@ import { QuizSettings } from "../../settings/config";
 import GeneratorFactory from "../../generators/generatorFactory";
 import AnswerInput from "../components/AnswerInput";
 
+// MODIFIED CODE: Added userAnswer and onAnswerChange
 interface ShortOrLongAnswerQuestionProps {
 	app: App;
 	question: ShortOrLongAnswer;
 	settings: QuizSettings;
+	userAnswer: string; // Not used directly, but part of the pattern
+	onAnswerChange: (answer: string) => void;
 }
 
-const ShortOrLongAnswerQuestion = ({ app, question, settings }: ShortOrLongAnswerQuestionProps) => {
+// MODIFIED CODE: Added onAnswerChange
+const ShortOrLongAnswerQuestion = ({ app, question, settings, onAnswerChange }: ShortOrLongAnswerQuestionProps) => {
 	const [status, setStatus] = useState<"answering" | "evaluating" | "submitted">("answering");
 	const component = useMemo<Component>(() => new Component(), []);
 	const questionRef = useRef<HTMLDivElement>(null);
@@ -31,7 +35,11 @@ const ShortOrLongAnswerQuestion = ({ app, question, settings }: ShortOrLongAnswe
 		}
 	}, [app, question, component, status]);
 
+	// MODIFIED CODE: Added call to onAnswerChange
 	const handleSubmit = async (input: string) => {
+		// NEW CODE: Store the user's answer in the parent component
+		onAnswerChange(input.trim());
+		
 		if (input.toLowerCase().trim() === "skip") {
 			setStatus("submitted");
 			return;
