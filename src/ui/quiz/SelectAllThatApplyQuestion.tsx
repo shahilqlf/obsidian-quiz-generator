@@ -2,13 +2,18 @@ import { App, Component, MarkdownRenderer } from "obsidian";
 import { useEffect, useRef, useState } from "react";
 import { SelectAllThatApply } from "../../utils/types";
 
+// MODIFIED CODE: Added userAnswer and onAnswerChange
 interface SelectAllThatApplyQuestionProps {
 	app: App;
 	question: SelectAllThatApply;
+	userAnswer: number[];
+	onAnswerChange: (answer: number[]) => void;
 }
 
-const SelectAllThatApplyQuestion = ({ app, question }: SelectAllThatApplyQuestionProps) => {
-	const [userAnswer, setUserAnswer] = useState<number[]>([]);
+// MODIFIED CODE: Added userAnswer and onAnswerChange
+const SelectAllThatApplyQuestion = ({ app, question, userAnswer, onAnswerChange }: SelectAllThatApplyQuestionProps) => {
+	// MODIFIED CODE: Removed local answer state
+	// const [userAnswer, setUserAnswer] = useState<number[]>([]);
 	const [submitted, setSubmitted] = useState<boolean>(false);
 	const questionRef = useRef<HTMLDivElement>(null);
 	const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -30,14 +35,15 @@ const SelectAllThatApplyQuestion = ({ app, question }: SelectAllThatApplyQuestio
 		});
 	}, [app, question]);
 
+	// MODIFIED CODE: Updated to call onAnswerChange prop
 	const toggleSelection = (buttonAnswer: number) => {
-		setUserAnswer(prevUserAnswer => {
-			if (prevUserAnswer.includes(buttonAnswer)) {
-				return prevUserAnswer.filter(answer => answer !== buttonAnswer);
-			} else {
-				return [...prevUserAnswer, buttonAnswer];
-			}
-		});
+		let newUserAnswer: number[];
+		if (userAnswer.includes(buttonAnswer)) {
+			newUserAnswer = userAnswer.filter(answer => answer !== buttonAnswer);
+		} else {
+			newUserAnswer = [...userAnswer, buttonAnswer];
+		}
+		onAnswerChange(newUserAnswer); // Pass the new array up to the parent
 	};
 
 	const getButtonClass = (buttonAnswer: number) => {
