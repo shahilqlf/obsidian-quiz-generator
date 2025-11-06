@@ -88,3 +88,5 @@ const ShortOrLongAnswerQuestion = ({ app, question, settings, userAnswer, onAnsw
 		</div>
 	);
 };
+
+export default ShortOrLongAnswerQuestion;
