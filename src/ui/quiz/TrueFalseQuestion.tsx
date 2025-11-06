@@ -2,18 +2,15 @@ import { App, Component, MarkdownRenderer } from "obsidian";
 import { useEffect, useRef } from "react";
 import { TrueFalse } from "../../utils/types";
 
-// MODIFIED CODE: Added userAnswer and onAnswerChange
+// MODIFIED CODE: onAnswerChange signature has changed
 interface TrueFalseQuestionProps {
 	app: App;
 	question: TrueFalse;
 	userAnswer: boolean | null;
-	onAnswerChange: (answer: boolean) => void;
+	onAnswerChange: (answer: boolean, isCorrect: boolean) => void; // Now sends `isCorrect`
 }
 
-// MODIFIED CODE: Added userAnswer and onAnswerChange
 const TrueFalseQuestion = ({ app, question, userAnswer, onAnswerChange }: TrueFalseQuestionProps) => {
-	// MODIFIED CODE: Removed the local state
-	// const [userAnswer, setUserAnswer] = useState<boolean | null>(null);
 	const questionRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
@@ -42,10 +39,11 @@ const TrueFalseQuestion = ({ app, question, userAnswer, onAnswerChange }: TrueFa
 			<div className="true-false-container-qg">
 				<button
 					className={getButtonClass(true)}
-					// MODIFIED CODE: Call onAnswerChange prop
+					// MODIFIED CODE: Now checks correctness and passes it to the parent
 					onClick={() => {
 						if (userAnswer === null) {
-							onAnswerChange(true);
+							const isCorrect = true === question.answer;
+							onAnswerChange(true, isCorrect);
 						}
 					}}
 					disabled={userAnswer !== null}
@@ -54,10 +52,11 @@ const TrueFalseQuestion = ({ app, question, userAnswer, onAnswerChange }: TrueFa
 				</button>
 				<button
 					className={getButtonClass(false)}
-					// MODIFIED CODE: Call onAnswerChange prop
+					// MODIFIED CODE: Now checks correctness and passes it to the parent
 					onClick={() => {
 						if (userAnswer === null) {
-							onAnswerChange(false);
+							const isCorrect = false === question.answer;
+							onAnswerChange(false, isCorrect);
 						}
 					}}
 					disabled={userAnswer !== null}
