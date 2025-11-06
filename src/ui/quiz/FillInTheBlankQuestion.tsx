@@ -1,15 +1,20 @@
 import { App, Component, MarkdownRenderer, Notice } from "obsidian";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { FillInTheBlank } from "../../utils/types";
 import AnswerInput from "../components/AnswerInput";
 
+// MODIFIED CODE: Added userAnswer and onAnswerChange
 interface FillInTheBlankQuestionProps {
 	app: App;
 	question: FillInTheBlank;
+	userAnswer: string[];
+	onAnswerChange: (answer: string[]) => void;
 }
 
-const FillInTheBlankQuestion = ({ app, question }: FillInTheBlankQuestionProps) => {
-	const [filledBlanks, setFilledBlanks] = useState<string[]>(Array(question.answer.length).fill(""));
+// MODIFIED CODE: Added userAnswer (renamed to filledBlanks) and onAnswerChange
+const FillInTheBlankQuestion = ({ app, question, userAnswer: filledBlanks, onAnswerChange: setFilledBlanks }: FillInTheBlankQuestionProps) => {
+	// MODIFIED CODE: Removed local state, now using props
+	// const [filledBlanks, setFilledBlanks] = useState<string[]>(Array(question.answer.length).fill(""));
 	const questionRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
@@ -34,7 +39,7 @@ const FillInTheBlankQuestion = ({ app, question }: FillInTheBlankQuestionProps) 
 				}
 			});
 		}
-	}, [app, question, filledBlanks]);
+	}, [app, question, filledBlanks]); // MODIFIED CODE: Dependency updated to prop
 
 	const handleSubmit = (input: string) => {
 		const normalizedInput = input.toLowerCase().trim();
@@ -43,12 +48,14 @@ const FillInTheBlankQuestion = ({ app, question }: FillInTheBlankQuestionProps) 
 		);
 
 		if (blankIndex !== -1) {
-			setFilledBlanks(prevFilledBlanks => {
+			// MODIFIED CODE: Call onAnswerChange (as setFilledBlanks) with the new array
+			setFilledBlanks((prevFilledBlanks: string[]) => {
 				const newFilledBlanks = [...prevFilledBlanks];
 				newFilledBlanks[blankIndex] = question.answer[blankIndex];
 				return newFilledBlanks;
 			});
 		} else if (normalizedInput === "skip") {
+			// MODIFIED CODE: Call onAnswerChange (as setFilledBlanks) with the full answer
 			setFilledBlanks(question.answer);
 		} else {
 			new Notice("Incorrect");
