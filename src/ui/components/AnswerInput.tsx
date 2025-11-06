@@ -1,14 +1,15 @@
 import { Notice } from "obsidian";
-import { ChangeEvent, KeyboardEvent, useRef, useState } from "react";
+import { ChangeEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 
 interface AnswerInputProps {
 	onSubmit: (input: string) => void;
 	clearInputOnSubmit?: boolean;
 	disabled?: boolean;
+	initialValue?: string; // NEW PROP
 }
 
-const AnswerInput = ({ onSubmit, clearInputOnSubmit = true, disabled = false }: AnswerInputProps) => {
-	const [userInput, setUserInput] = useState<string>("");
+const AnswerInput = ({ onSubmit, clearInputOnSubmit = true, disabled = false, initialValue = "" }: AnswerInputProps) => {
+	const [userInput, setUserInput] = useState<string>(initialValue); // MODIFIED
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 
 	const adjustInputHeight = () => {
@@ -17,6 +18,11 @@ const AnswerInput = ({ onSubmit, clearInputOnSubmit = true, disabled = false }: 
 			inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
 		}
 	};
+	
+	// NEW CODE: Adjust height on load
+	useEffect(() => {
+		adjustInputHeight();
+	}, []);
 
 	const handleInputChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
 		setUserInput(event.target.value);
