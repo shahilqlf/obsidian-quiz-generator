@@ -41,6 +41,7 @@ const FillInTheBlankQuestion = ({ app, question, userAnswer: filledBlanks, onAns
 		}
 	}, [app, question, filledBlanks]); // MODIFIED CODE: Dependency updated to prop
 
+	// MODIFIED CODE: This function is now fixed
 	const handleSubmit = (input: string) => {
 		const normalizedInput = input.toLowerCase().trim();
 		const blankIndex = question.answer.findIndex(
@@ -48,14 +49,13 @@ const FillInTheBlankQuestion = ({ app, question, userAnswer: filledBlanks, onAns
 		);
 
 		if (blankIndex !== -1) {
-			// MODIFIED CODE: Call onAnswerChange (as setFilledBlanks) with the new array
-			setFilledBlanks((prevFilledBlanks: string[]) => {
-				const newFilledBlanks = [...prevFilledBlanks];
-				newFilledBlanks[blankIndex] = question.answer[blankIndex];
-				return newFilledBlanks;
-			});
+			// MODIFIED CODE: We now build the new array from the `filledBlanks` prop
+			// and pass the *value* to setFilledBlanks.
+			const newFilledBlanks = [...filledBlanks];
+			newFilledBlanks[blankIndex] = question.answer[blankIndex];
+			setFilledBlanks(newFilledBlanks);
 		} else if (normalizedInput === "skip") {
-			// MODIFIED CODE: Call onAnswerChange (as setFilledBlanks) with the full answer
+			// MODIFIED CODE: This was already correct, as it passes a value.
 			setFilledBlanks(question.answer);
 		} else {
 			new Notice("Incorrect");
