@@ -325,3 +325,48 @@ FillInTheBlankQuestion, MatchingQuestion, ShortOrLongAnswerQuestion */
 	padding-top: 0.75em !important;
 	border-top: 1px solid var(--background-modifier-border) !important;
 }
+
+/* --- NEW CODE FOR TICKS --- */
+
+/* For True/False and Multiple Choice */
+.true-false-button-qg.correct-choice-qg::after,
+.multiple-choice-button-qg.correct-choice-qg::after {
+  content: '✔';
+  float: right;
+  color: var(--color-green);
+}
+
+.true-false-button-qg.incorrect-choice-qg::after,
+.multiple-choice-button-qg.incorrect-choice-qg::after {
+  content: '✖';
+  float: right;
+  color: var(--color-red);
+}
+
+/* For Select All That Apply (it's more complex) */
+.select-all-that-apply-button-qg.correct-choice-qg:not(.not-selected-qg)::after {
+  content: '✔';
+  float: right;
+  color: var(--color-green);
+}
+
+.select-all-that-apply-button-qg.incorrect-choice-qg::after {
+  content: '✖';
+  float: right;
+  color: var(--color-red);
+}
+
+/* For Matching (this targets the button itself) */
+.matching-button-qg.correct-choice-qg::after {
+	content: '✔';
+	float: right;
+	margin-right: 1.5em; /* Make space for the circle */
+	color: var(--color-green);
+}
+
+.matching-button-qg.incorrect-choice-qg::after {
+	content: '✖';
+	float: right;
+	margin-right: 1.5em; /* Make space for the circle */
+	color: var(--color-red);
+}
