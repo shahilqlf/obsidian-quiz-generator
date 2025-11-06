@@ -93,7 +93,7 @@ const QuizModal = ({ app, settings, quiz, quizSaver, reviewing, handleClose }: Q
 		setUserAnswers(newUserAnswers);
 	};
 	
-	// MODIFIED CODE: Now checks if it's the last question
+	// MODIFIED CODE: This handler now also accepts `isCorrect`
 	const handleNextQuestion = () => {
 		if (questionIndex < quiz.length - 1) {
 			setQuestionIndex(questionIndex + 1);
@@ -103,7 +103,7 @@ const QuizModal = ({ app, settings, quiz, quizSaver, reviewing, handleClose }: Q
 		}
 	};
 
-	// MODIFIED CODE: Now passes `onAnswerChange` with the new (isCorrect) parameter
+	// MODIFIED CODE: Added explicit types to `answer` and `isCorrect`
 	const renderQuestion = () => {
 		const question = quiz[questionIndex];
 		if (isTrueFalse(question)) {
@@ -112,7 +112,7 @@ const QuizModal = ({ app, settings, quiz, quizSaver, reviewing, handleClose }: Q
 				app={app}
 				question={question}
 				userAnswer={userAnswers[questionIndex]}
-				onAnswerChange={(answer, isCorrect) => handleAnswerChange(questionIndex, answer, isCorrect)}
+				onAnswerChange={(answer: boolean, isCorrect: boolean) => handleAnswerChange(questionIndex, answer, isCorrect)}
 			/>;
 		} else if (isMultipleChoice(question)) {
 			return <MultipleChoiceQuestion
@@ -120,7 +120,7 @@ const QuizModal = ({ app, settings, quiz, quizSaver, reviewing, handleClose }: Q
 				app={app}
 				question={question}
 				userAnswer={userAnswers[questionIndex]}
-				onAnswerChange={(answer, isCorrect) => handleAnswerChange(questionIndex, answer, isCorrect)}
+				onAnswerChange={(answer: number, isCorrect: boolean) => handleAnswerChange(questionIndex, answer, isCorrect)}
 			/>;
 		} else if (isSelectAllThatApply(question)) {
 			return <SelectAllThatApplyQuestion
@@ -128,7 +128,7 @@ const QuizModal = ({ app, settings, quiz, quizSaver, reviewing, handleClose }: Q
 				app={app}
 				question={question}
 				userAnswer={userAnswers[questionIndex] || []}
-				onAnswerChange={(answer, isCorrect) => handleAnswerChange(questionIndex, answer, isCorrect)}
+				onAnswerChange={(answer: number[], isCorrect: boolean) => handleAnswerChange(questionIndex, answer, isCorrect)}
 			/>;
 		} else if (isFillInTheBlank(question)) {
 			return <FillInTheBlankQuestion
@@ -136,7 +136,7 @@ const QuizModal = ({ app, settings, quiz, quizSaver, reviewing, handleClose }: Q
 				app={app}
 				question={question}
 				userAnswer={userAnswers[questionIndex] || Array(question.answer.length).fill("")}
-				onAnswerChange={(answer, isCorrect) => handleAnswerChange(questionIndex, answer, isCorrect)}
+				onAnswerChange={(answer: string[], isCorrect: boolean) => handleAnswerChange(questionIndex, answer, isCorrect)}
 			/>;
 		} else if (isMatching(question)) {
 			return <MatchingQuestion
@@ -144,7 +144,7 @@ const QuizModal = ({ app, settings, quiz, quizSaver, reviewing, handleClose }: Q
 				app={app}
 				question={question}
 				userAnswer={userAnswers[questionIndex] || []}
-				onAnswerChange={(answer, isCorrect) => handleAnswerChange(questionIndex, answer, isCorrect)}
+				onAnswerChange={(answer: { leftIndex: number, rightIndex: number }[], isCorrect: boolean) => handleAnswerChange(questionIndex, answer, isCorrect)}
 			/>;
 		} else if (isShortOrLongAnswer(question)) {
 			return <ShortOrLongAnswerQuestion
@@ -153,7 +153,7 @@ const QuizModal = ({ app, settings, quiz, quizSaver, reviewing, handleClose }: Q
 				question={question}
 				settings={settings}
 				userAnswer={userAnswers[questionIndex] || ""}
-				onAnswerChange={(answer, isCorrect) => handleAnswerChange(questionIndex, answer, isCorrect)}
+				onAnswerChange={(answer: string, isCorrect: boolean) => handleAnswerChange(questionIndex, answer, isCorrect)}
 			/>;
 		}
 	};
@@ -168,6 +168,7 @@ const QuizModal = ({ app, settings, quiz, quizSaver, reviewing, handleClose }: Q
 					Your Score: {score} / {quiz.length}
 				</div>
 				<div className="modal-button-container-qg">
+					{/* MODIFIED CODE: Changed to a standard button as ModalButton doesn't accept children */}
 					<button className="modal-button-qg" onClick={handleClose}>Finish</button>
 				</div>
 			</div>
@@ -209,15 +210,16 @@ const QuizModal = ({ app, settings, quiz, quizSaver, reviewing, handleClose }: Q
 									onClick={handleSaveAllQuestions}
 									disabled={!savedQuestions.includes(false)}
 								/>
+								{/* MODIFIED CODE: This button is now dynamic.
+								  It shows "Finish" on the last question.
+								  It no longer has text inside it (which caused the error).
+								*/}
 								<ModalButton
-									icon="arrow-right"
-									tooltip="Next"
+									icon={questionIndex === quiz.length - 1 ? "check-circle" : "arrow-right"}
+									tooltip={questionIndex === quiz.length - 1 ? "Finish" : "Next"}
 									onClick={handleNextQuestion}
-									// MODIFIED CODE: Button text changes on last question
 									disabled={correctness[questionIndex] === null && !reviewing}
-								>
-									{questionIndex === quiz.length - 1 ? "Finish" : "Next"}
-								</ModalButton>
+								/>
 							</div>
 							<hr className="quiz-divider-qg" />
 						</>
