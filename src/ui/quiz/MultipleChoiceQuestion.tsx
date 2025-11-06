@@ -1,14 +1,19 @@
 import { App, Component, MarkdownRenderer } from "obsidian";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { MultipleChoice } from "../../utils/types";
 
+// MODIFIED CODE: Added userAnswer and onAnswerChange to the props
 interface MultipleChoiceQuestionProps {
 	app: App;
 	question: MultipleChoice;
+	userAnswer: number | null;
+	onAnswerChange: (answer: number) => void;
 }
 
-const MultipleChoiceQuestion = ({ app, question }: MultipleChoiceQuestionProps) => {
-	const [userAnswer, setUserAnswer] = useState<number | null>(null);
+// MODIFIED CODE: Added userAnswer and onAnswerChange to the function arguments
+const MultipleChoiceQuestion = ({ app, question, userAnswer, onAnswerChange }: MultipleChoiceQuestionProps) => {
+	// MODIFIED CODE: Removed the local state, as it's now managed by the parent
+	// const [userAnswer, setUserAnswer] = useState<number | null>(null);
 	const questionRef = useRef<HTMLDivElement>(null);
 	const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -48,7 +53,12 @@ const MultipleChoiceQuestion = ({ app, question }: MultipleChoiceQuestionProps) 
 						key={index}
 						ref={(el) => buttonRefs.current[index] = el}
 						className={getButtonClass(index)}
-						onClick={() => setUserAnswer(index)}
+						// MODIFIED CODE: Call the onAnswerChange prop instead of setting local state
+						onClick={() => {
+							if (userAnswer === null) {
+								onAnswerChange(index);
+							}
+						}}
 						disabled={userAnswer !== null}
 					/>
 				))}
